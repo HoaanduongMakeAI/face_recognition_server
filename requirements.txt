@@ -1,0 +1,11 @@
+torch
+facenet_pytorch
+numpy
+opencv-python
+Pillow
+chromadb
+fastapi
+pydantic
+python-dotenv
+uvicorn
+uuid
