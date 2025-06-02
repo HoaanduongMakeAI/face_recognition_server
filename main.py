@@ -6,6 +6,7 @@ from PIL import Image
 import io
 import os
 import uuid # Import the uuid module
+import asyncio
 import chromadb
 from dotenv import load_dotenv, set_key
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Security
@@ -112,7 +113,8 @@ def load_database_to_memory(collection_name: str):
         return {}
 
 # Hàm để thêm một người vào database ChromaDB
-def add_person_to_database(image_bytes: bytes, person_name: str, collection_name: str):
+# Chuyển hàm này thành đồng bộ để có thể chạy trong executor
+def add_person_to_database_sync(image_bytes: bytes, person_name: str, collection_name: str):
     collection = get_or_create_chroma_collection(collection_name)
     try:
         img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
@@ -142,7 +144,8 @@ def add_person_to_database(image_bytes: bytes, person_name: str, collection_name
         raise HTTPException(status_code=500, detail=f"Lỗi khi thêm {person_name} vào ChromaDB: {e}")
 
 # Hàm nhận diện khuôn mặt
-def recognize_face_from_image(image_bytes: bytes, collection_name: str, threshold: float = 0.65):
+# Chuyển hàm này thành đồng bộ để có thể chạy trong executor
+def recognize_face_from_image_sync(image_bytes: bytes, collection_name: str, threshold: float = 0.65):
     # Tải lại database từ ChromaDB để đảm bảo cập nhật
     database = loaded_collections.get(collection_name)
     if database is None:
@@ -208,6 +211,22 @@ def recognize_face_from_image(image_bytes: bytes, collection_name: str, threshol
 
     return {"recognized_faces": recognized_results}
 
+# --- Khởi tạo hàng đợi trong bộ nhớ ---
+task_queue = asyncio.Queue()
+
+# --- Hàm xử lý tác vụ nền ---
+async def background_task_processor():
+    while True:
+        task_func, args, kwargs, future = await task_queue.get()
+        try:
+            # Chạy tác vụ trong một thread riêng để không chặn event loop
+            result = await asyncio.to_thread(task_func, *args, **kwargs)
+            future.set_result(result)
+        except Exception as e:
+            future.set_exception(e)
+        finally:
+            task_queue.task_done()
+
 # --- Khởi tạo FastAPI app ---
 app = FastAPI(dependencies=[Depends(get_api_key)])
 
@@ -221,6 +240,8 @@ async def startup_event():
     for col_info in all_collections:
         load_database_to_memory(col_info.name)
     print("Đã tải xong các collection.")
+    # Khởi động trình xử lý tác vụ nền
+    asyncio.create_task(background_task_processor())
 
 
 class EnrollFaceRequest(BaseModel):
@@ -236,7 +257,10 @@ async def enroll_face_endpoint(collection_name: str, person_name: str, file: Upl
     - `file`: Ảnh khuôn mặt (dạng file upload).
     """
     image_bytes = await file.read()
-    return add_person_to_database(image_bytes, person_name, collection_name)
+    future = asyncio.Future()
+    await task_queue.put((add_person_to_database_sync, (image_bytes, person_name, collection_name), {}, future))
+    # Trả về ngay lập tức, kết quả sẽ được xử lý trong background
+    return {"message": "Enrollment request enqueued. Processing in background."}
 
 @app.post("/recognize_face/{collection_name}")
 async def recognize_face_endpoint(collection_name: str, file: UploadFile = File(...)):
@@ -246,4 +270,7 @@ async def recognize_face_endpoint(collection_name: str, file: UploadFile = File(
     - `file`: Ảnh chứa khuôn mặt cần nhận diện (dạng file upload).
     """
     image_bytes = await file.read()
-    return recognize_face_from_image(image_bytes, collection_name)
+    future = asyncio.Future()
+    await task_queue.put((recognize_face_from_image_sync, (image_bytes, collection_name), {}, future))
+    # Trả về ngay lập tức, kết quả sẽ được xử lý trong background
+    return {"message": "Recognition request enqueued. Processing in background."}
