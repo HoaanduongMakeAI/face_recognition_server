@@ -1,4 +1,3 @@
-torch
 facenet_pytorch
 numpy
 opencv-python
