@@ -163,20 +163,31 @@ def recognize_face_from_image_sync(image_bytes: bytes, collection_name: str, thr
     if faces is None:
         return {"recognized_faces": []}
 
+    # Lấy bounding box, xác suất và landmarks
+    bboxes, probs, landmarks = mtcnn.detect(img_attendance, landmarks=True)
+
+    if bboxes is None or len(bboxes) == 0:
+        return {"recognized_faces": []}
+
     if faces.dim() == 3:
         faces = faces.unsqueeze(0)
 
+    # Đảm bảo số lượng khuôn mặt đã xử lý khớp với số lượng bounding box
+    # Nếu không khớp, chỉ xử lý số lượng nhỏ hơn để tránh lỗi
+    num_faces_to_process = min(len(bboxes), len(faces))
+    
     embeddings = resnet(faces.to(device)).detach().cpu()
 
     recognized_results = []
-    for i in range(len(embeddings)):
+    for i in range(num_faces_to_process):
+        bbox = bboxes[i]
         current_embedding_cpu = embeddings[i]
 
         max_similarity = -1
         recognized_name = "Unknown"
 
         if not database:
-            recognized_results.append({"name": recognized_name, "similarity": max_similarity})
+            recognized_results.append({"name": recognized_name, "similarity": max_similarity, "bbox": bbox.tolist()})
             continue
 
         current_embedding_cpu = current_embedding_cpu.to(device)
@@ -205,9 +216,9 @@ def recognize_face_from_image_sync(image_bytes: bytes, collection_name: str, thr
                 recognized_name = name
 
         if max_similarity >= threshold:
-            recognized_results.append({"name": recognized_name, "similarity": round(max_similarity, 4)})
+            recognized_results.append({"name": recognized_name, "similarity": round(max_similarity, 4), "bbox": bbox.tolist()})
         else:
-            recognized_results.append({"name": "Unknown", "similarity": round(max_similarity, 4)})
+            recognized_results.append({"name": "Unknown", "similarity": round(max_similarity, 4), "bbox": bbox.tolist()})
 
     return {"recognized_faces": recognized_results}
 
