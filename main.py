@@ -259,8 +259,14 @@ async def enroll_face_endpoint(collection_name: str, person_name: str, file: Upl
     image_bytes = await file.read()
     future = asyncio.Future()
     await task_queue.put((add_person_to_database_sync, (image_bytes, person_name, collection_name), {}, future))
-    # Trả về ngay lập tức, kết quả sẽ được xử lý trong background
-    return {"message": "Enrollment request enqueued. Processing in background."}
+    # Đợi tác vụ hoàn thành và trả về kết quả
+    try:
+        result = await future
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý yêu cầu nạp khuôn mặt: {e}")
 
 @app.post("/recognize_face/{collection_name}")
 async def recognize_face_endpoint(collection_name: str, file: UploadFile = File(...)):
@@ -272,5 +278,11 @@ async def recognize_face_endpoint(collection_name: str, file: UploadFile = File(
     image_bytes = await file.read()
     future = asyncio.Future()
     await task_queue.put((recognize_face_from_image_sync, (image_bytes, collection_name), {}, future))
-    # Trả về ngay lập tức, kết quả sẽ được xử lý trong background
-    return {"message": "Recognition request enqueued. Processing in background."}
+    # Đợi tác vụ hoàn thành và trả về kết quả
+    try:
+        result = await future
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý yêu cầu nhận diện khuôn mặt: {e}")
