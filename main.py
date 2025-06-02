@@ -50,7 +50,7 @@ async def get_api_key(api_key: str = Security(api_key_header)):
     )
 
 # Thiết bị: Sử dụng GPU nếu có, ngược lại sử dụng CPU
-device = torch.device('cuda:0' if torch.cuda.cuda_is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(f'Đang sử dụng thiết bị: {device}')
 
 # --- 1. Khởi tạo các mô hình ---
