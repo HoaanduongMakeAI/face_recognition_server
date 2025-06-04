@@ -9,7 +9,7 @@ import uuid # Import the uuid module
 import asyncio
 import chromadb
 from dotenv import load_dotenv, set_key
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Security
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Security, Form
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
