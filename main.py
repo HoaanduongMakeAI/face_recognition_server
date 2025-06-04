@@ -222,6 +222,20 @@ def recognize_face_from_image_sync(image_bytes: bytes, collection_name: str, thr
 
     return {"recognized_faces": recognized_results}
 
+def get_faces_in_collection_sync(collection_name: str):
+    """Lấy danh sách các khuôn mặt (IDs) có trong một collection ChromaDB."""
+    collection = get_or_create_chroma_collection(collection_name)
+    try:
+        results = collection.get(
+            ids=collection.get()['ids'],
+            include=[] # Chỉ cần IDs
+        )
+        face_ids = results['ids']
+        print(f"Đã lấy {len(face_ids)} khuôn mặt từ collection '{collection_name}'.")
+        return {"face_ids": face_ids}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lấy danh sách khuôn mặt từ ChromaDB collection '{collection_name}': {e}")
+
 # --- Khởi tạo hàng đợi trong bộ nhớ ---
 task_queue = asyncio.Queue()
 
@@ -297,3 +311,19 @@ async def recognize_face_endpoint(collection_name: str, file: UploadFile = File(
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý yêu cầu nhận diện khuôn mặt: {e}")
+
+@app.get("/list_faces/{collection_name}")
+async def list_faces_endpoint(collection_name: str):
+    """
+    Lấy danh sách các khuôn mặt (IDs) có trong một collection cụ thể.
+    - `collection_name`: Tên của collection ChromaDB.
+    """
+    future = asyncio.Future()
+    await task_queue.put((get_faces_in_collection_sync, (collection_name,), {}, future))
+    try:
+        result = await future
+        return result
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý yêu cầu lấy danh sách khuôn mặt: {e}")
