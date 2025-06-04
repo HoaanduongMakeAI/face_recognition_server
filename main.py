@@ -274,7 +274,7 @@ class EnrollFaceRequest(BaseModel):
     collection_name: str
 
 @app.post("/enroll_face/{collection_name}")
-async def enroll_face_endpoint(collection_name: str, person_name: str, file: UploadFile = File(...)):
+async def enroll_face_endpoint(collection_name: str, person_name: str = Form(...), file: UploadFile = File(...)):
     """
     Nạp khuôn mặt vào một collection cụ thể.
     - `collection_name`: Tên của collection ChromaDB để lưu trữ embedding.
