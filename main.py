@@ -141,6 +141,9 @@ def add_person_to_database_sync(image_bytes: bytes, person_name: str, collection
     collection = get_or_create_chroma_collection(collection_name)
     try:
         img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+        img_np = np.array(img)
+        print(f"Đã mở ảnh. Kích thước ảnh (shape): {img_np.shape}")
+        print(f"Giá trị pixel mẫu (góc trên bên trái): {img_np[0:2, 0:2, :]}")
     except Exception as e:
         traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=400, detail=f"Lỗi khi mở ảnh: {e}")
