@@ -148,9 +148,16 @@ def add_person_to_database_sync(image_bytes: bytes, person_name: str, collection
         traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=400, detail=f"Lỗi khi mở ảnh: {e}")
 
+    # Thử phát hiện khuôn mặt và lấy bounding box, xác suất
+    bboxes, probs = mtcnn.detect(img)
+    print(f"MTCNN detect - Bounding Boxes: {bboxes}")
+    print(f"MTCNN detect - Probabilities: {probs}")
+
     face = mtcnn(img, save_path=None)
 
     if face is None:
+        # Nếu không tìm thấy khuôn mặt nào sau khi xử lý, in thêm thông tin để debug
+        print(f"MTCNN không tìm thấy khuôn mặt nào trong ảnh cho {person_name}.")
         raise HTTPException(status_code=400, detail=f"Không tìm thấy khuôn mặt nào trong ảnh cho {person_name}.")
 
     face = face.to(device)
