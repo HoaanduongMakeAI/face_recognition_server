@@ -148,17 +148,32 @@ def add_person_to_database_sync(image_bytes: bytes, person_name: str, collection
         traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=400, detail=f"Lỗi khi mở ảnh: {e}")
 
-    # Thử phát hiện khuôn mặt và lấy bounding box, xác suất
-    bboxes, probs = mtcnn.detect(img)
-    print(f"MTCNN detect - Bounding Boxes: {bboxes}")
-    print(f"MTCNN detect - Probabilities: {probs}")
+    # Thử phát hiện khuôn mặt với các góc xoay khác nhau
+    detected_face = None
+    rotations = [0, 90, 180, 270] # Các góc xoay để thử
 
-    face = mtcnn(img, save_path=None)
+    for angle in rotations:
+        rotated_img = img.rotate(angle, expand=True) # Xoay ảnh
+        print(f"Đang thử phát hiện khuôn mặt với góc xoay: {angle} độ. Kích thước ảnh sau xoay: {rotated_img.size}")
 
-    if face is None:
-        # Nếu không tìm thấy khuôn mặt nào sau khi xử lý, in thêm thông tin để debug
-        print(f"MTCNN không tìm thấy khuôn mặt nào trong ảnh cho {person_name}.")
-        raise HTTPException(status_code=400, detail=f"Không tìm thấy khuôn mặt nào trong ảnh cho {person_name}.")
+        # Thử phát hiện khuôn mặt và lấy bounding box, xác suất
+        bboxes, probs = mtcnn.detect(rotated_img)
+        print(f"MTCNN detect (góc {angle} độ) - Bounding Boxes: {bboxes}")
+        print(f"MTCNN detect (góc {angle} độ) - Probabilities: {probs}")
+
+        face_candidate = mtcnn(rotated_img, save_path=None)
+
+        if face_candidate is not None:
+            detected_face = face_candidate
+            print(f"Đã tìm thấy khuôn mặt ở góc xoay {angle} độ.")
+            break # Dừng lại nếu tìm thấy khuôn mặt
+
+    if detected_face is None:
+        # Nếu không tìm thấy khuôn mặt nào sau khi thử tất cả các góc xoay
+        print(f"MTCNN không tìm thấy khuôn mặt nào trong ảnh cho {person_name} sau khi thử các góc xoay.")
+        raise HTTPException(status_code=400, detail=f"Không tìm thấy khuôn mặt nào trong ảnh cho {person_name} sau khi thử các góc xoay.")
+    
+    face = detected_face # Gán khuôn mặt đã tìm thấy cho biến 'face'
 
     face = face.to(device)
     embedding = resnet(face).detach().cpu().numpy() # Chuyển tensor thành numpy array
