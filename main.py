@@ -61,8 +61,8 @@ print(f'Đang sử dụng thiết bị: {device}')
 mtcnn = MTCNN(
     image_size=160, # Kích thước khuôn mặt đầu ra mong muốn
     margin=0,       # Biên độ quanh khuôn mặt
-    min_face_size=20, # Kích thước khuôn mặt tối thiểu để phát hiện
-    thresholds=[0.6, 0.7, 0.7], # Ngưỡng xác suất cho các bước của MTCNN
+    min_face_size=10, # Kích thước khuôn mặt tối thiểu để phát hiện
+    thresholds=[0.5, 0.6, 0.6], # Ngưỡng xác suất cho các bước của MTCNN
     factor=0.709,   # Tham số tỷ lệ
     post_process=True, # Xử lý hậu kỳ (làm mịn bounding box)
     device=device,   # Chạy trên thiết bị đã chọn,
