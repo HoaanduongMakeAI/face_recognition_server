@@ -87,8 +87,8 @@ loaded_collections = {}
 def get_or_create_chroma_collection(collection_name: str):
     """Tạo hoặc lấy collection ChromaDB."""
     # Sanitize the collection name to adhere to ChromaDB's naming rules
-    # Replace spaces and other invalid characters with underscores, and convert to lowercase
-    sanitized_collection_name = re.sub(r'[^a-zA-Z0-9._-]', '_', collection_name).lower()
+    # Replace invalid characters with underscores
+    sanitized_collection_name = re.sub(r'[^a-zA-Z0-9._-]', '_', collection_name)
     # Ensure it starts and ends with an alphanumeric character if it doesn't already
     sanitized_collection_name = re.sub(r'^[^a-zA-Z0-9]+', '', sanitized_collection_name)
     sanitized_collection_name = re.sub(r'[^a-zA-Z0-9]+$', '', sanitized_collection_name)
@@ -96,8 +96,10 @@ def get_or_create_chroma_collection(collection_name: str):
     # Ensure the name is not empty after sanitization and meets minimum length
     if not sanitized_collection_name:
         raise ValueError("Collection name cannot be empty after sanitization.")
+    # ChromaDB requires at least 3 characters for collection names
     if len(sanitized_collection_name) < 3:
-        sanitized_collection_name = (sanitized_collection_name + "___")[:3] # Pad to min length if too short
+        # Append underscores to meet the minimum length if necessary
+        sanitized_collection_name = (sanitized_collection_name + "___")[:3]
 
     try:
         collection = client.get_or_create_collection(name=sanitized_collection_name)
