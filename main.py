@@ -8,6 +8,7 @@ import os
 import uuid # Import the uuid module
 import asyncio
 import chromadb
+import re # Import the re module for regular expressions
 import traceback # Import the traceback module
 from dotenv import load_dotenv, set_key
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Security, Form
@@ -85,13 +86,26 @@ loaded_collections = {}
 
 def get_or_create_chroma_collection(collection_name: str):
     """Tạo hoặc lấy collection ChromaDB."""
+    # Sanitize the collection name to adhere to ChromaDB's naming rules
+    # Replace spaces and other invalid characters with underscores, and convert to lowercase
+    sanitized_collection_name = re.sub(r'[^a-zA-Z0-9._-]', '_', collection_name).lower()
+    # Ensure it starts and ends with an alphanumeric character if it doesn't already
+    sanitized_collection_name = re.sub(r'^[^a-zA-Z0-9]+', '', sanitized_collection_name)
+    sanitized_collection_name = re.sub(r'[^a-zA-Z0-9]+$', '', sanitized_collection_name)
+
+    # Ensure the name is not empty after sanitization and meets minimum length
+    if not sanitized_collection_name:
+        raise ValueError("Collection name cannot be empty after sanitization.")
+    if len(sanitized_collection_name) < 3:
+        sanitized_collection_name = (sanitized_collection_name + "___")[:3] # Pad to min length if too short
+
     try:
-        collection = client.get_or_create_collection(name=collection_name)
-        print(f"Đã kết nối tới ChromaDB collection: {collection_name}")
+        collection = client.get_or_create_collection(name=sanitized_collection_name)
+        print(f"Đã kết nối tới ChromaDB collection: {sanitized_collection_name}")
         return collection
     except Exception as e:
         traceback.print_exc() # Print the full traceback
-        raise HTTPException(status_code=500, detail=f"Lỗi khi kết nối hoặc tạo ChromaDB collection: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi khi kết nối hoặc tạo ChromaDB collection: {e}. Tên collection đã thử: {sanitized_collection_name}")
 
 def load_database_to_memory(collection_name: str):
     """Tải dữ liệu từ ChromaDB collection vào bộ nhớ dưới dạng dictionary."""
