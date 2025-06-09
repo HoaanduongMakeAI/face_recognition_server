@@ -209,13 +209,39 @@ def recognize_face_from_image_sync(image_bytes: bytes, collection_name: str, thr
         traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=400, detail=f"Lỗi khi mở ảnh điểm danh: {e}")
 
-    faces = mtcnn(img_attendance, save_path=None)
+    # Thử phát hiện khuôn mặt với các góc xoay khác nhau cho ảnh điểm danh
+    detected_faces = None
+    detected_bboxes = None
+    detected_probs = None
+    detected_landmarks = None
+    rotations = [0, 90, 180, 270] # Các góc xoay để thử
 
-    if faces is None:
+    for angle in rotations:
+        rotated_img_attendance = img_attendance.rotate(angle, expand=True) # Xoay ảnh
+        print(f"Đang thử nhận diện khuôn mặt với góc xoay: {angle} độ. Kích thước ảnh sau xoay: {rotated_img_attendance.size}")
+
+        # Thử phát hiện khuôn mặt và lấy bounding box, xác suất, landmarks
+        bboxes_candidate, probs_candidate, landmarks_candidate = mtcnn.detect(rotated_img_attendance, landmarks=True)
+        print(f"MTCNN detect (góc {angle} độ) - Bounding Boxes: {bboxes_candidate}")
+        print(f"MTCNN detect (góc {angle} độ) - Probabilities: {probs_candidate}")
+
+        faces_candidate = mtcnn(rotated_img_attendance, save_path=None)
+
+        if faces_candidate is not None and bboxes_candidate is not None and len(bboxes_candidate) > 0:
+            detected_faces = faces_candidate
+            detected_bboxes = bboxes_candidate
+            detected_probs = probs_candidate
+            detected_landmarks = landmarks_candidate
+            print(f"Đã tìm thấy khuôn mặt ở góc xoay {angle} độ cho nhận diện.")
+            break # Dừng lại nếu tìm thấy khuôn mặt
+
+    if detected_faces is None:
         return {"recognized_faces": []}
 
-    # Lấy bounding box, xác suất và landmarks
-    bboxes, probs, landmarks = mtcnn.detect(img_attendance, landmarks=True)
+    faces = detected_faces
+    bboxes = detected_bboxes
+    probs = detected_probs
+    landmarks = detected_landmarks
 
     if bboxes is None or len(bboxes) == 0:
         return {"recognized_faces": []}
