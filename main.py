@@ -112,8 +112,13 @@ def load_database_to_memory(collection_name: str):
     """Tải dữ liệu từ ChromaDB collection vào bộ nhớ dưới dạng dictionary."""
     collection = get_or_create_chroma_collection(collection_name)
     try:
+        all_ids = collection.get()['ids']
+        if not all_ids:
+            print(f"ChromaDB collection '{collection_name}' trống. Không có dữ liệu để tải.")
+            return {}
+
         results = collection.get(
-            ids=collection.get()['ids'], # Lấy tất cả các ID
+            ids=all_ids, # Lấy tất cả các ID
             include=['embeddings', 'metadatas']
         )
         database_dict = {}
