@@ -8,6 +8,7 @@ import os
 import uuid # Import the uuid module
 import asyncio
 import chromadb
+import traceback # Import the traceback module
 from dotenv import load_dotenv, set_key
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Security, Form
 from fastapi.security import APIKeyHeader
@@ -34,7 +35,7 @@ if not API_KEY:
         set_key(dotenv_path, "API_KEY", API_KEY)
         print(f"API_KEY saved to {dotenv_path}")
     except Exception as e:
-        print(f"Error saving API_KEY to .env file: {e}")
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=500, detail=f"Failed to set API_KEY: {e}")
 
 # Reload environment variables to ensure the newly generated API_KEY is loaded
@@ -89,6 +90,7 @@ def get_or_create_chroma_collection(collection_name: str):
         print(f"Đã kết nối tới ChromaDB collection: {collection_name}")
         return collection
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=500, detail=f"Lỗi khi kết nối hoặc tạo ChromaDB collection: {e}")
 
 def load_database_to_memory(collection_name: str):
@@ -109,6 +111,7 @@ def load_database_to_memory(collection_name: str):
         loaded_collections[collection_name] = database_dict
         return database_dict
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         print(f"Lỗi khi tải dữ liệu từ ChromaDB collection '{collection_name}': {e}")
         return {}
 
@@ -119,6 +122,7 @@ def add_person_to_database_sync(image_bytes: bytes, person_name: str, collection
     try:
         img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=400, detail=f"Lỗi khi mở ảnh: {e}")
 
     face = mtcnn(img, save_path=None)
@@ -141,6 +145,7 @@ def add_person_to_database_sync(image_bytes: bytes, person_name: str, collection
         load_database_to_memory(collection_name)
         return {"message": f"Đã thêm/cập nhật {person_name} vào collection '{collection_name}'."}
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=500, detail=f"Lỗi khi thêm {person_name} vào ChromaDB: {e}")
 
 # Hàm nhận diện khuôn mặt
@@ -156,6 +161,7 @@ def recognize_face_from_image_sync(image_bytes: bytes, collection_name: str, thr
     try:
         img_attendance = Image.open(io.BytesIO(image_bytes)).convert('RGB')
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=400, detail=f"Lỗi khi mở ảnh điểm danh: {e}")
 
     faces = mtcnn(img_attendance, save_path=None)
@@ -234,6 +240,7 @@ def get_faces_in_collection_sync(collection_name: str):
         print(f"Đã lấy {len(face_ids)} khuôn mặt từ collection '{collection_name}'.")
         return {"face_ids": face_ids}
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy danh sách khuôn mặt từ ChromaDB collection '{collection_name}': {e}")
 
 # --- Khởi tạo hàng đợi trong bộ nhớ ---
@@ -248,6 +255,7 @@ async def background_task_processor():
             result = await asyncio.to_thread(task_func, *args, **kwargs)
             future.set_result(result)
         except Exception as e:
+            traceback.print_exc() # Print the full traceback
             future.set_exception(e)
         finally:
             task_queue.task_done()
@@ -291,6 +299,7 @@ async def enroll_face_endpoint(collection_name: str, person_name: str = Form(...
     except HTTPException as e:
         raise e
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý yêu cầu nạp khuôn mặt: {e}")
 
 @app.post("/recognize_face/{collection_name}")
@@ -310,6 +319,7 @@ async def recognize_face_endpoint(collection_name: str, file: UploadFile = File(
     except HTTPException as e:
         raise e
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý yêu cầu nhận diện khuôn mặt: {e}")
 
 @app.get("/list_faces/{collection_name}")
@@ -326,4 +336,5 @@ async def list_faces_endpoint(collection_name: str):
     except HTTPException as e:
         raise e
     except Exception as e:
+        traceback.print_exc() # Print the full traceback
         raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý yêu cầu lấy danh sách khuôn mặt: {e}")
